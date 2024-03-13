@@ -1,10 +1,9 @@
-
 use std::fs;
 use std::io::Read;
 use std::io::Write;
 use std::path::PathBuf;
 
-use sha1::{Sha1, Digest};
+use sha1::{Digest, Sha1};
 use thiserror::Error;
 
 use nom::bytes::complete::tag;
@@ -52,7 +51,7 @@ pub fn pretty_print(object: String) -> Result<String, MyGitError> {
 pub fn hash_object(write: bool, file: PathBuf) -> String {
     let contents = std::fs::read_to_string(file).unwrap();
     let blob: String = format!("blob {}\0{}", contents.len(), contents);
-    
+
     // Hash blob contents
     let mut hasher = Sha1::new();
     hasher.update(blob.as_bytes());
@@ -70,7 +69,7 @@ pub fn hash_object(write: bool, file: PathBuf) -> String {
         let blob_dir = String::from_utf8(hashed_blob_hex.as_bytes()[..2].to_vec()).unwrap();
         let blob_file = String::from_utf8(hashed_blob_hex.as_bytes()[2..].to_vec()).unwrap();
         let blob_file_path = format!("mygit/objects/{}/{}", blob_dir, blob_file);
-        
+
         log::debug!("Saving blob to {}", blob_file_path);
         fs::create_dir_all(format!("mygit/objects/{}", blob_dir)).unwrap();
         fs::write(blob_file_path, encoded_blob_contents).unwrap();
@@ -99,7 +98,7 @@ fn sha_to_path(sha: &str) -> PathBuf {
 pub enum FileMode {
     RegularFile,
     ExecutableFile,
-    SymbolicLink
+    SymbolicLink,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -110,21 +109,35 @@ pub enum ObjectType {
 
 #[derive(Debug, Clone)]
 pub struct TreeEntry {
-    mode: FileMode,
+    mode: String,
     ty: ObjectType,
     hash: String,
-    file: String
+    file: String,
+}
+
+fn parse_tree_entry(input: &[u8]) -> IResult<&[u8], TreeEntry> {
+    let (input, mode) = nom::branch::alt((tag("100644"), tag("040000"), tag("100755")))(input)?;
+    let (input, _) = nom::character::complete::space0(input)?;
+    let (input, file) = nom::bytes::complete::take_while(|s| s != '\0' as u8)(input)?;
+    let (input, _) = tag("\0")(input)?;
+    let (input, hash) = nom::bytes::complete::take(20usize)(input)?;
+
+    Ok((
+        input,
+        TreeEntry {
+            mode: String::from_utf8(mode.to_vec()).unwrap(),
+            ty: ObjectType::Blob,
+            hash: hex::encode(hash),
+            file: String::from_utf8(file.to_vec()).unwrap(),
+        },
+    ))
 }
 
 fn parse_tree_entries(input: &[u8]) -> IResult<&[u8], Vec<TreeEntry>> {
-    let (input, _) = tag("tree")(input)?;
-    let (input, _) = nom::number::complete::le_i32(input)?;
-    let (input, _) = tag("\0")(input)?;
-    let (input, _) = nom::branch::alt((tag("100644"), tag("040000"), tag("100755")))(input)?;
-    let (input, _) = nom::character::complete::space0(input)?;
-    let (input, _) = nom::bytes::complete::take_while(|s|s != '\0' as u8)(input)?;
-    let (input, _) = tag("\0")(input)?;
-    let (input, _) = nom::bytes::complete::take(20usize)(input)?;
+    let (input, _) =
+        nom::sequence::tuple((tag("tree"), nom::number::complete::le_i32, tag("\0")))(input)?;
+    let (input, _) = nom::multi::many0(parse_tree_entry)(input)?;
+
     println!("{:?}", String::from_utf8_lossy(input));
     todo!()
 }

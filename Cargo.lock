@@ -213,6 +213,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive-try-from-primitive"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "302ccf094df1151173bb6f5a2282fcd2f45accd5eae1bdf82dcbfefbc501ad5c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 1.0.99",
+]
+
+[[package]]
 name = "digest"
 version = "0.10.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -616,6 +627,7 @@ dependencies = [
  "anyhow",
  "bytes",
  "clap",
+ "derive-try-from-primitive",
  "env_logger",
  "flate2",
  "hex",

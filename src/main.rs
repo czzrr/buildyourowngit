@@ -42,8 +42,8 @@ enum Command {
         #[arg(long)]
         name_only: bool,
         /// Hash of tree object
-        object: String
-    }
+        object: String,
+    },
 }
 
 #[derive(Debug, Args)]
@@ -71,15 +71,21 @@ fn main() -> anyhow::Result<()> {
                 let contents = pretty_print(object)?;
                 print!("{}", contents);
             }
-        },
+        }
         Command::HashObject { write, file } => {
             let hash = hash_object(write, file);
             println!("{}", hash);
-        },
+        }
         Command::LsTree { name_only, object } => {
-            ls_tree(&object);
+            let tree_entries = ls_tree(&object);
+            for entry in tree_entries {
+                if name_only {
+                    println!("{}", entry.file);
+                } else {
+                    println!("{}", entry)
+                }
+            }
         }
     };
     Ok(())
 }
-

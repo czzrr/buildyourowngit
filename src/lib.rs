@@ -1,3 +1,4 @@
+use std::fmt::Display;
 use std::fs;
 use std::io::Read;
 use std::io::Write;
@@ -107,27 +108,50 @@ pub enum ObjectType {
     Tree,
 }
 
+impl Display for ObjectType {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ObjectType::Blob => f.write_str("blob"),
+            ObjectType::Tree => f.write_str("tree"),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct TreeEntry {
-    mode: String,
-    ty: ObjectType,
-    hash: String,
-    file: String,
+    pub mode: String,
+    pub ty: ObjectType,
+    pub hash: String,
+    pub file: String,
+}
+
+impl Display for TreeEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_fmt(format_args!(
+            "{:0>6} {} {}\t{}",
+            self.mode, self.ty, self.hash, self.file
+        ))
+    }
 }
 
 fn parse_tree_entry(input: &[u8]) -> IResult<&[u8], TreeEntry> {
-    let (input, mode) = nom::branch::alt((tag("100644"), tag("040000"), tag("100755")))(input)?;
+    let (input, mode) = nom::branch::alt((tag("100644"), tag("40000"), tag("100755")))(input)?;
     let (input, _) = nom::character::complete::space0(input)?;
     let (input, file) = nom::bytes::complete::take_while(|s| s != '\0' as u8)(input)?;
     let (input, _) = tag("\0")(input)?;
     let (input, hash) = nom::bytes::complete::take(20usize)(input)?;
 
+    let hash = hex::encode(hash);
     Ok((
         input,
         TreeEntry {
             mode: String::from_utf8(mode.to_vec()).unwrap(),
-            ty: ObjectType::Blob,
-            hash: hex::encode(hash),
+            ty: match mode {
+                b"100644" | b"100755" => ObjectType::Blob,
+                b"40000" => ObjectType::Tree,
+                _ => panic!("{:?}", mode),
+            },
+            hash,
             file: String::from_utf8(file.to_vec()).unwrap(),
         },
     ))
@@ -136,22 +160,17 @@ fn parse_tree_entry(input: &[u8]) -> IResult<&[u8], TreeEntry> {
 fn parse_tree_entries(input: &[u8]) -> IResult<&[u8], Vec<TreeEntry>> {
     let (input, _) =
         nom::sequence::tuple((tag("tree"), nom::number::complete::le_i32, tag("\0")))(input)?;
-    let (input, _) = nom::multi::many0(parse_tree_entry)(input)?;
+    let (input, entries) = nom::multi::many0(parse_tree_entry)(input)?;
 
-    println!("{:?}", String::from_utf8_lossy(input));
-    todo!()
+    Ok((input, entries))
 }
 
-pub fn ls_tree(object: &str) {
+pub fn ls_tree(object: &str) -> Vec<TreeEntry> {
     let object_path = sha_to_path(object);
     let object_contents = std::fs::read(object_path).unwrap();
-    dbg!(&object_contents);
     let decoded_object_contents = zlib_decode(&object_contents);
-    dbg!(&decoded_object_contents);
 
-    let tree_entries = parse_tree_entries(&decoded_object_contents);
+    let tree_entries = parse_tree_entries(&decoded_object_contents).unwrap().1;
 
-    for entry in tree_entries {
-        println!("{:?}", entry);
-    }
+    tree_entries
 }

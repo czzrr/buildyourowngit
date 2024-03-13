@@ -25,6 +25,7 @@ enum Command {
     CatFile {
         #[command(flatten)]
         flag: CatFileFlag,
+        // Hash of blob object
         object: String,
     },
     /// Create a Git object
@@ -35,9 +36,12 @@ enum Command {
         // File with object contents
         file: PathBuf,
     },
+    /// Inspect a tree object
     LsTree {
+        /// List only filenames
         #[arg(long)]
         name_only: bool,
+        /// Hash of tree object
         object: String
     }
 }
@@ -73,7 +77,7 @@ fn main() -> anyhow::Result<()> {
             println!("{}", hash);
         },
         Command::LsTree { name_only, object } => {
-            ls_tree(object);
+            ls_tree(&object);
         }
     };
     Ok(())

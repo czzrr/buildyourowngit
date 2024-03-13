@@ -7,6 +7,9 @@ use std::path::PathBuf;
 use sha1::{Sha1, Digest};
 use thiserror::Error;
 
+use nom::bytes::complete::tag;
+use nom::IResult;
+
 #[derive(Debug, Clone, Error)]
 pub enum MyGitError {
     #[error("Invalid object name {0}")]
@@ -79,7 +82,7 @@ pub fn hash_object(write: bool, file: PathBuf) -> String {
 fn zlib_decode(data: &[u8]) -> Vec<u8> {
     let mut decoder = flate2::bufread::ZlibDecoder::new(&data[..]);
     let mut decoded: Vec<u8> = Vec::new();
-    decoder.read(&mut decoded).unwrap();
+    decoder.read_to_end(&mut decoded).unwrap();
 
     decoded
 }
@@ -87,7 +90,7 @@ fn zlib_decode(data: &[u8]) -> Vec<u8> {
 fn sha_to_path(sha: &str) -> PathBuf {
     let prefix = String::from_utf8(sha.as_bytes()[..2].to_vec()).unwrap();
     let suffix = String::from_utf8(sha.as_bytes()[2..].to_vec()).unwrap();
-    let file = PathBuf::from(format!("mygit/objects/{}/{}", prefix, suffix));
+    let file = PathBuf::from(format!(".git/objects/{}/{}", prefix, suffix));
 
     file
 }
@@ -113,16 +116,25 @@ pub struct TreeEntry {
     file: String
 }
 
-fn parse_tree_entries(data: &[u8]) -> Vec<TreeEntry> {
-
+fn parse_tree_entries(input: &[u8]) -> IResult<&[u8], Vec<TreeEntry>> {
+    let (input, _) = tag("tree")(input)?;
+    let (input, _) = nom::number::complete::le_i32(input)?;
+    let (input, _) = tag("\0")(input)?;
+    let (input, _) = nom::branch::alt((tag("100644"), tag("040000"), tag("100755")))(input)?;
+    let (input, _) = nom::character::complete::space0(input)?;
+    let (input, _) = nom::bytes::complete::take_while(|s|s != '\0' as u8)(input)?;
+    let (input, _) = tag("\0")(input)?;
+    let (input, _) = nom::bytes::complete::take(20usize)(input)?;
+    println!("{:?}", String::from_utf8_lossy(input));
     todo!()
 }
 
 pub fn ls_tree(object: &str) {
     let object_path = sha_to_path(object);
     let object_contents = std::fs::read(object_path).unwrap();
-
+    dbg!(&object_contents);
     let decoded_object_contents = zlib_decode(&object_contents);
+    dbg!(&decoded_object_contents);
 
     let tree_entries = parse_tree_entries(&decoded_object_contents);
 

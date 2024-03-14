@@ -1,7 +1,9 @@
 use std::fmt::Display;
 use std::fs;
+use std::fs::DirEntry;
 use std::io::Read;
 use std::io::Write;
+use std::os::unix::fs::PermissionsExt;
 use std::path::Path;
 use std::path::PathBuf;
 
@@ -39,17 +41,18 @@ pub fn pretty_print(object: String) -> Result<String, MyGitError> {
     );
     let blob_contents = fs::read(blob_path).map_err(|_| MyGitError::InvalidObjectName(object))?;
     let decoded_blob = zlib_decode(&blob_contents);
-    let contents: Vec<u8> = decoded_blob.into_iter()
+    let contents: Vec<u8> = decoded_blob
+        .into_iter()
         .skip_while(|c| *c != '\0' as u8)
         .skip(1)
         .collect();
     let contents = String::from_utf8(contents).unwrap();
-    
+
     Ok(contents)
 }
 
 pub fn hash_object(write: bool, file: impl AsRef<Path>) -> String {
-    let contents = std::fs::read(file).unwrap();    
+    let contents = std::fs::read(file).unwrap();
     let size = contents.len().to_string();
 
     let mut blob = Vec::new();
@@ -57,7 +60,7 @@ pub fn hash_object(write: bool, file: impl AsRef<Path>) -> String {
     blob.extend_from_slice(size.as_bytes());
     blob.push('\0' as u8);
     blob.extend_from_slice(&contents);
-    
+
     // Hash blob contents
     let mut hasher = Sha1::new();
     hasher.update(&blob);
@@ -127,6 +130,16 @@ impl Display for ObjectType {
     }
 }
 
+impl From<&str> for ObjectType {
+    fn from(value: &str) -> Self {
+        match value {
+            "100644" | "100755" => ObjectType::Blob,
+            "040000" => ObjectType::Tree,
+            _ => unimplemented!(),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct TreeEntry {
     pub mode: String,
@@ -185,15 +198,52 @@ pub fn ls_tree(object: &str) -> Vec<TreeEntry> {
     tree_entries
 }
 
-pub fn write_tree() {
-    let files = std::fs::read_dir(".").unwrap();
+pub fn write_tree(path: &Path) -> Vec<TreeEntry> {
+    let mut tree_entries = Vec::new();
+
+    let files = std::fs::read_dir(path).unwrap();
+    let files: Result<Vec<DirEntry>, _> = files.into_iter().collect();
+    let mut files = files.unwrap();
+    files.sort_by(|f1, f2| f1.file_name().cmp(&f2.file_name()));
     for file in files {
-        let file = file.unwrap();
+        let file = file;
         let file_name = file.file_name();
         let file_type = file.file_type().unwrap();
+        let is_exec = file.metadata().unwrap().permissions().mode() & 0o111 != 0;
+        let file_mode = if file_type.is_file() {
+            if is_exec {
+                "100755"
+            } else {
+                "100644"
+            }
+        } else if file_type.is_dir() {
+            "040000"
+        } else {
+            unimplemented!()
+        };
         if file_type.is_file() {
             let hash = hash_object(false, &file_name);
-            println!("{}, {:?}", hash, file_name);
+
+            println!(
+                "{} {} {}\t{}",
+                file_mode,
+                "blob",
+                hash,
+                file_name.to_str().unwrap()
+            );
+            let entry = TreeEntry {
+                mode: file_mode.to_owned(),
+                ty: ObjectType::from(file_mode),
+                hash,
+                file: file_name.to_str().unwrap().to_owned(),
+            };
+            tree_entries.push(entry);
+        } else if file_type.is_dir() {
+            let path = path.to_path_buf().join(file_name);
+            let entries = write_tree(&path);
+            
         }
     }
+
+    tree_entries
 }

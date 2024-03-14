@@ -37,15 +37,13 @@ pub fn pretty_print(object: String) -> Result<String, MyGitError> {
         std::str::from_utf8(&blob_file).unwrap()
     );
     let blob_contents = fs::read(blob_path).map_err(|_| MyGitError::InvalidObjectName(object))?;
-    let mut decoder = flate2::bufread::ZlibDecoder::new(&blob_contents[..]);
-    let mut decoded_blob = String::new();
-    decoder.read_to_string(&mut decoded_blob).unwrap();
-    let contents: String = decoded_blob
-        .chars()
-        .skip_while(|c| c != &'\0')
+    let decoded_blob = zlib_decode(&blob_contents);
+    let contents: Vec<u8> = decoded_blob.into_iter()
+        .skip_while(|c| *c != '\0' as u8)
         .skip(1)
         .collect();
-
+    let contents = String::from_utf8(contents).unwrap();
+    
     Ok(contents)
 }
 
@@ -61,22 +59,27 @@ pub fn hash_object(write: bool, file: PathBuf) -> String {
 
     if write {
         // Zlib encode blob contents
-        let mut buf = Vec::new();
-        let mut encoder = flate2::write::ZlibEncoder::new(&mut buf, flate2::Compression::new(1));
-        encoder.write_all(blob.as_bytes()).unwrap();
-        let encoded_blob_contents = encoder.finish().unwrap();
+        let encoded_blob_contents = zlib_encode(blob.as_bytes());
 
         // Save encoded blob contents to file
         let blob_dir = String::from_utf8(hashed_blob_hex.as_bytes()[..2].to_vec()).unwrap();
         let blob_file = String::from_utf8(hashed_blob_hex.as_bytes()[2..].to_vec()).unwrap();
-        let blob_file_path = format!("mygit/objects/{}/{}", blob_dir, blob_file);
+        let blob_file_path = format!(".git/objects/{}/{}", blob_dir, blob_file);
 
         log::debug!("Saving blob to {}", blob_file_path);
-        fs::create_dir_all(format!("mygit/objects/{}", blob_dir)).unwrap();
+        fs::create_dir_all(format!(".git/objects/{}", blob_dir)).unwrap();
         fs::write(blob_file_path, encoded_blob_contents).unwrap();
     }
 
     hashed_blob_hex
+}
+
+fn zlib_encode(data: &[u8]) -> Vec<u8> {
+    let mut encoder = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::new(1));
+    encoder.write_all(data).unwrap();
+    let encoded = encoder.finish().unwrap();
+
+    encoded
 }
 
 fn zlib_decode(data: &[u8]) -> Vec<u8> {

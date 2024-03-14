@@ -44,6 +44,8 @@ enum Command {
         /// Hash of tree object
         object: String,
     },
+    /// Write tree object for staging area
+    WriteTree
 }
 
 #[derive(Debug, Args)]
@@ -85,6 +87,9 @@ fn main() -> anyhow::Result<()> {
                     println!("{}", entry)
                 }
             }
+        },
+        Command::WriteTree => {
+            write_tree()
         }
     };
     Ok(())

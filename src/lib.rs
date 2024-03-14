@@ -2,6 +2,7 @@ use std::fmt::Display;
 use std::fs;
 use std::io::Read;
 use std::io::Write;
+use std::path::Path;
 use std::path::PathBuf;
 
 use sha1::{Digest, Sha1};
@@ -47,19 +48,25 @@ pub fn pretty_print(object: String) -> Result<String, MyGitError> {
     Ok(contents)
 }
 
-pub fn hash_object(write: bool, file: PathBuf) -> String {
-    let contents = std::fs::read_to_string(file).unwrap();
-    let blob: String = format!("blob {}\0{}", contents.len(), contents);
+pub fn hash_object(write: bool, file: impl AsRef<Path>) -> String {
+    let contents = std::fs::read(file).unwrap();    
+    let size = contents.len().to_string();
 
+    let mut blob = Vec::new();
+    blob.extend_from_slice(&b"blob "[..]);
+    blob.extend_from_slice(size.as_bytes());
+    blob.push('\0' as u8);
+    blob.extend_from_slice(&contents);
+    
     // Hash blob contents
     let mut hasher = Sha1::new();
-    hasher.update(blob.as_bytes());
+    hasher.update(&blob);
     let hashed_blob = hasher.finalize();
     let hashed_blob_hex = hex::encode(hashed_blob);
 
     if write {
         // Zlib encode blob contents
-        let encoded_blob_contents = zlib_encode(blob.as_bytes());
+        let encoded_blob_contents = zlib_encode(&blob);
 
         // Save encoded blob contents to file
         let blob_dir = String::from_utf8(hashed_blob_hex.as_bytes()[..2].to_vec()).unwrap();
@@ -176,4 +183,17 @@ pub fn ls_tree(object: &str) -> Vec<TreeEntry> {
     let tree_entries = parse_tree_entries(&decoded_object_contents).unwrap().1;
 
     tree_entries
+}
+
+pub fn write_tree() {
+    let files = std::fs::read_dir(".").unwrap();
+    for file in files {
+        let file = file.unwrap();
+        let file_name = file.file_name();
+        let file_type = file.file_type().unwrap();
+        if file_type.is_file() {
+            let hash = hash_object(false, &file_name);
+            println!("{}, {:?}", hash, file_name);
+        }
+    }
 }

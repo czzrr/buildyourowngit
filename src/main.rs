@@ -89,7 +89,8 @@ fn main() -> anyhow::Result<()> {
             }
         }
         Command::WriteTree => {
-            write_tree(".");
+            let hash = write_tree();
+            println!("{}", hash);
         }
     };
     Ok(())

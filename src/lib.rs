@@ -14,6 +14,10 @@ use thiserror::Error;
 use nom::bytes::complete::tag;
 use nom::IResult;
 
+pub mod clone;
+
+pub use clone::*;
+
 #[derive(Debug, Clone, Error)]
 pub enum MyGitError {
     #[error("Invalid object name {0}")]
@@ -228,7 +232,7 @@ pub fn hash_object(write: bool, file: impl AsRef<Path>) -> String {
         let blob_file_path = format!(".git/objects/{}/{}", blob_dir, blob_file);
 
         log::debug!("Saving blob to {}", blob_file_path);
-        
+
         fs::create_dir_all(format!(".git/objects/{}", blob_dir)).unwrap();
         fs::write(blob_file_path, encoded_blob).unwrap();
     }
@@ -374,7 +378,11 @@ fn get_tree_entries(dir: impl AsRef<Path>) -> Vec<TreeEntry> {
     tree_entries
 }
 
-pub fn commit_tree(tree_sha: String, parent_sha: String, message: String) -> Result<(), MyGitError> {
+pub fn commit_tree(
+    tree_sha: String,
+    parent_sha: String,
+    message: String,
+) -> Result<(), MyGitError> {
     if !sha_to_path(&tree_sha).exists() {
         return Err(MyGitError::InvalidObjectName(tree_sha));
     }

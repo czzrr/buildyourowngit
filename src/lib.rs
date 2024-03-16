@@ -1,6 +1,7 @@
 use std::fmt::Display;
 use std::fs;
 use std::fs::DirEntry;
+use std::io;
 use std::io::Read;
 use std::io::Write;
 use std::os::unix::fs::PermissionsExt;
@@ -371,4 +372,35 @@ fn get_tree_entries(dir: impl AsRef<Path>) -> Vec<TreeEntry> {
     }
 
     tree_entries
+}
+
+pub fn commit_tree(tree_sha: String, parent_sha: String, message: String) -> Result<(), MyGitError> {
+    if !sha_to_path(&tree_sha).exists() {
+        return Err(MyGitError::InvalidObjectName(tree_sha));
+    }
+    if !sha_to_path(&parent_sha).exists() {
+        return Err(MyGitError::InvalidObjectName(parent_sha));
+    }
+
+    let mut buf: Vec<u8> = Vec::new();
+    buf.extend(b"tree ");
+    buf.extend(tree_sha.as_bytes());
+    buf.extend(b"\n");
+    buf.extend(b"parent ");
+    buf.extend(parent_sha.as_bytes());
+    buf.extend(b"\n");
+    buf.extend(b"author John Doe <john@doe.com> 1710605448 +0100\n");
+    buf.extend(b"committer John Doe <john@doe.com> 1710605448 +0100\n");
+    buf.extend(b"\n");
+    buf.extend(message.as_bytes());
+    buf.extend(b"\n");
+
+    let mut newbuf: Vec<u8> = Vec::new();
+    newbuf.extend(b"commit ");
+    newbuf.extend(buf.len().to_string().as_bytes());
+    newbuf.extend(&buf);
+
+    io::stdout().write_all(&buf).unwrap();
+
+    Ok(())
 }

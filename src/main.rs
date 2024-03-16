@@ -46,6 +46,17 @@ enum Command {
     },
     /// Write tree object for staging area
     WriteTree,
+    /// Commit tree object
+    CommitTree {
+        /// Tree SHA
+        tree_sha: String,
+        /// Parent commit
+        #[arg(short)]
+        parent_sha: String,
+        /// Commit message
+        #[arg(short)]
+        message: String
+    }
 }
 
 #[derive(Debug, Args)]
@@ -91,6 +102,11 @@ fn main() -> anyhow::Result<()> {
         Command::WriteTree => {
             let hash = write_tree();
             println!("{}", hash);
+        },
+        Command::CommitTree { tree_sha, parent_sha: parent_commit, message } => {
+            if let Err(err) = commit_tree(tree_sha, parent_commit, message) {
+                println!("{}", err);
+            }
         }
     };
     Ok(())

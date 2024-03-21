@@ -1,11 +1,12 @@
 use nom::{
-    bytes::complete::{tag, take, take_while}, IResult
+    bytes::complete::{tag, take, take_while},
+    IResult,
 };
 
 #[derive(Debug)]
 struct ReferenceDiscovery {
     sha_ref_pairs: Vec<(String, String)>,
-    capabilities: Vec<String>
+    capabilities: Vec<String>,
 }
 
 impl ReferenceDiscovery {
@@ -48,17 +49,26 @@ impl ReferenceDiscovery {
 
         println!("capabilities: {:?}", capabilities);
 
-        let mut sha_ref_pairs: Vec<(String, String)> = lines[2..lines.len() - 1].iter().map(|line| {
-            let mut split = line[4..].split(' ');
-            let sha = split.next().unwrap().to_owned();
-            let reff = split.next().unwrap().to_owned();
-            (sha, reff)
-        }).collect();
+        let mut sha_ref_pairs: Vec<(String, String)> = lines[2..lines.len() - 1]
+            .iter()
+            .map(|line| {
+                let mut split = line[4..].split(' ');
+                let sha = split.next().unwrap().to_owned();
+                let reff = split.next().unwrap().to_owned();
+                (sha, reff)
+            })
+            .collect();
         sha_ref_pairs.insert(0, (sha.to_owned(), reference.to_owned()));
-        
+
         println!("--- FINISHED PARSING ---");
 
-        Ok((input, ReferenceDiscovery { sha_ref_pairs, capabilities }))
+        Ok((
+            input,
+            ReferenceDiscovery {
+                sha_ref_pairs,
+                capabilities,
+            },
+        ))
     }
 }
 

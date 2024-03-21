@@ -26,7 +26,7 @@ enum Command {
         #[command(flatten)]
         flag: CatFileFlag,
         // Hash of blob object
-        object: String,
+        object_hash: String,
     },
     /// Create a Git object
     HashObject {
@@ -68,12 +68,6 @@ pub struct CatFileFlag {
     /// Pretty-print object's contents
     #[arg(short)]
     pretty: bool,
-    // /// Show object type
-    // #[arg(name = "type", short)]
-    // ty: bool,
-    // /// Show object size
-    // #[arg(short)]
-    // size: bool
 }
 
 fn main() -> anyhow::Result<()> {
@@ -82,11 +76,9 @@ fn main() -> anyhow::Result<()> {
     let args = Cli::parse();
     match args.command {
         Command::Init => init::init(),
-        Command::CatFile { flag, object } => {
-            if flag.pretty {
-                let contents = cat_file::pretty_print(object)?;
-                print!("{}", contents);
-            }
+        Command::CatFile { flag, object_hash } => {
+            anyhow::ensure!(flag.pretty, "-p must be used");
+            cat_file::cat_file(&object_hash)?;
         }
         Command::HashObject { write, file } => {
             let hash = hash_object::hash_object(write, file);

@@ -1,11 +1,49 @@
 use std::{
+    ffi::CStr,
     fmt::Display,
-    io::{Read, Write},
+    io::{self, BufRead, BufReader, Cursor, Read, Write},
     path::{Path, PathBuf},
 };
 
+use anyhow::Context;
 use nom::{bytes::complete::tag, IResult};
 use sha1::{Digest, Sha1};
+
+pub struct Object {
+    pub ty: ObjectType,
+    pub contents: Vec<u8>,
+}
+
+impl Object {
+    pub fn read(object_hash: &str) -> anyhow::Result<Object> {
+        let object_dir = object_hash
+            .get(..2)
+            .ok_or(anyhow::anyhow!("invalid object hash"))?;
+        let object_file = &object_hash[2..];
+        let object_path = format!(".git/objects/{}/{}", object_dir, object_file);
+        let file_contents = std::fs::read(object_path).context("read object file")?;
+        let decoded = zlib_decode(&file_contents);
+        let mut buf_reader = BufReader::new(Cursor::new(decoded));
+        let mut buf = Vec::new();
+        buf_reader.read_until(0, &mut buf).context("read header")?;
+        let header = CStr::from_bytes_with_nul(&buf).context("should end with a nul byte")?;
+        let header = header.to_str().context("header should be valid utf-8")?;
+        let (ty, size) = header
+            .split_once(' ')
+            .context("object type and size should be separated by a space")?;
+        let ty = ObjectType::try_from(ty).map_err(|err| anyhow::anyhow!(err))?;
+        let size: usize = size
+            .parse()
+            .context("expected object size to be decimal encoded")?;
+        let mut contents = vec![0; size];
+        buf_reader
+            .read_exact(&mut contents)
+            .context(format!("could not read {size} bytes"))?;
+        let object = Object { ty, contents };
+
+        Ok(object)
+    }
+}
 
 pub fn zlib_encode(data: &[u8]) -> Vec<u8> {
     let mut encoder = flate2::write::ZlibEncoder::new(Vec::new(), flate2::Compression::new(1));
@@ -95,6 +133,18 @@ impl TryFrom<&str> for FileMode {
 pub enum ObjectType {
     Blob,
     Tree,
+}
+
+impl TryFrom<&str> for ObjectType {
+    type Error = &'static str;
+
+    fn try_from(value: &str) -> Result<Self, Self::Error> {
+        match value {
+            "blob" => Ok(ObjectType::Blob),
+            "tree" => Ok(ObjectType::Tree),
+            _ => Err("invalid variant"),
+        }
+    }
 }
 
 impl Display for ObjectType {

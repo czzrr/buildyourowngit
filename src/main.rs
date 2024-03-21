@@ -81,19 +81,19 @@ fn main() -> anyhow::Result<()> {
 
     let args = Cli::parse();
     match args.command {
-        Command::Init => init(),
+        Command::Init => init::init(),
         Command::CatFile { flag, object } => {
             if flag.pretty {
-                let contents = pretty_print(object)?;
+                let contents = cat_file::pretty_print(object)?;
                 print!("{}", contents);
             }
         }
         Command::HashObject { write, file } => {
-            let hash = hash_object(write, file);
+            let hash = hash_object::hash_object(write, file);
             println!("{}", hash);
         }
         Command::LsTree { name_only, object } => {
-            let tree_entries = ls_tree(&object);
+            let tree_entries = ls_tree::ls_tree(&object);
             for entry in tree_entries {
                 if name_only {
                     println!("{}", entry.file);
@@ -103,7 +103,7 @@ fn main() -> anyhow::Result<()> {
             }
         }
         Command::WriteTree => {
-            let hash = write_tree();
+            let hash = write_tree::write_tree();
             println!("{}", hash);
         }
         Command::CommitTree {
@@ -111,14 +111,14 @@ fn main() -> anyhow::Result<()> {
             parent_sha: parent_commit,
             message,
         } => {
-            if let Err(err) = commit_tree(tree_sha, parent_commit, message) {
+            if let Err(err) = commit_tree::commit_tree(tree_sha, parent_commit, message) {
                 println!("{}", err);
             }
         }
         Command::Clone {
             repo_url: repository_url,
         } => {
-            clone(repository_url);
+            clone::clone(repository_url);
         }
     };
     Ok(())

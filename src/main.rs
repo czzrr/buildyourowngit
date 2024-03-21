@@ -85,7 +85,7 @@ fn main() -> anyhow::Result<()> {
             println!("{}", hash);
         }
         Command::LsTree { name_only, object } => {
-            let tree_entries = ls_tree::ls_tree(&object);
+            let tree_entries = ls_tree::ls_tree(&object)?;
             for entry in tree_entries {
                 if name_only {
                     println!("{}", entry.file);
@@ -95,7 +95,7 @@ fn main() -> anyhow::Result<()> {
             }
         }
         Command::WriteTree => {
-            let hash = write_tree::write_tree();
+            let hash = write_tree::write_tree()?;
             println!("{}", hash);
         }
         Command::CommitTree {

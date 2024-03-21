@@ -256,10 +256,13 @@ pub fn file_to_blob_object(file: impl AsRef<Path>) -> BlobObject {
     BlobObject { contents: blob }
 }
 
-pub fn sha_to_path(sha: &str) -> PathBuf {
-    let prefix = String::from_utf8(sha.as_bytes()[..2].to_vec()).unwrap();
-    let suffix = String::from_utf8(sha.as_bytes()[2..].to_vec()).unwrap();
-    let file = PathBuf::from(format!(".git/objects/{}/{}", prefix, suffix));
+pub fn hash_to_path(hash: &str) -> anyhow::Result<PathBuf> {
+    if hash.len() != 40 || hex::decode(hash).is_err() {
+        return Err(anyhow::anyhow!("invalid hash"));
+    }
+    let prefix = &hash[..2];
+    let suffix = &hash[2..];
+    let path = PathBuf::from(format!(".git/objects/{}/{}", prefix, suffix));
 
-    file
+    Ok(path)
 }

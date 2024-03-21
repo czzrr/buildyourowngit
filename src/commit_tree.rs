@@ -1,12 +1,12 @@
 use std::io::{self, Write};
 
-use crate::common::sha_to_path;
+use crate::common::hash_to_path;
 
 pub fn commit_tree(tree_sha: String, parent_sha: String, message: String) -> anyhow::Result<()> {
-    if !sha_to_path(&tree_sha).exists() {
+    if !hash_to_path(&tree_sha)?.exists() {
         return Err(anyhow::anyhow!("tree does not exist"));
     }
-    if !sha_to_path(&parent_sha).exists() {
+    if !hash_to_path(&parent_sha)?.exists() {
         return Err(anyhow::anyhow!("parent tree does not exist"));
     }
 

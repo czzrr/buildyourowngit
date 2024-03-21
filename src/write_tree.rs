@@ -1,36 +1,39 @@
 use std::{fs::DirEntry, os::unix::fs::PermissionsExt, path::Path};
 
 use crate::{
-    common::{hash, sha_to_path, zlib_encode, FileMode, ObjectType, TreeEntry, TreeObject},
+    common::{
+        hash, hash_to_path, zlib_encode, FileMode, Object, ObjectType, TreeEntry, TreeObject,
+    },
     hash_object::hash_object,
 };
 
 /// Write tree object for current directory and return its hash.
-pub fn write_tree() -> String {
-    let tree_entries = get_tree_entries(".");
+pub fn write_tree() -> anyhow::Result<String> {
+    let contents = compute_tree_contents(".")?;
 
-    for tree_entry in &tree_entries {
-        log::debug!("{}", tree_entry);
-    }
+    let tree_object = Object {
+        ty: ObjectType::Tree,
+        contents,
+    };
+    let mut buf = Vec::new();
+    tree_object.write(&mut buf)?;
+    let hash = hash(&buf);
+    let encoded_tree_object = zlib_encode(&buf);
+    let path = hash_to_path(&hash)?;
 
-    let tree_object = TreeObject::from(tree_entries);
-    let hash = hash(&tree_object.contents);
-    let encoded_tree_object = zlib_encode(&tree_object.contents);
-    let file = sha_to_path(&hash);
-
-    log::debug!("Writing object to {}", file.to_str().unwrap());
+    log::debug!("Writing object to {}", path.to_str().unwrap());
 
     // Create dir if it doesn't exist
-    let dir = file.ancestors().skip(1).next().unwrap();
+    let dir = path.ancestors().skip(1).next().unwrap();
     std::fs::create_dir_all(dir).unwrap();
 
-    std::fs::write(file, encoded_tree_object).unwrap();
+    std::fs::write(path, encoded_tree_object).unwrap();
 
-    hash
+    Ok(hash)
 }
 
 /// Compute the tree entries for all files in `dir`.
-fn get_tree_entries(dir: impl AsRef<Path>) -> Vec<TreeEntry> {
+fn compute_tree_contents(dir: impl AsRef<Path>) -> anyhow::Result<Vec<u8>> {
     let mut tree_entries = Vec::new();
 
     // Get Vec of sorted files in directory
@@ -85,9 +88,8 @@ fn get_tree_entries(dir: impl AsRef<Path>) -> Vec<TreeEntry> {
             // Tree.
             // Ignore `.git` and files in `.gitignore`.
             // Recursively compute tree entries.
-            let entries = get_tree_entries(file_name_abs);
-            let tree_object = TreeObject::from(entries);
-            let hash: String = hash(&tree_object.contents);
+            let tree_contents = compute_tree_contents(file_name_abs)?;
+            let hash: String = hash(&tree_contents);
             tree_entries.push(TreeEntry {
                 mode: FileMode::Directory,
                 ty: ObjectType::Tree,
@@ -97,5 +99,5 @@ fn get_tree_entries(dir: impl AsRef<Path>) -> Vec<TreeEntry> {
         }
     }
 
-    tree_entries
+    Ok(TreeObject::from(tree_entries).contents)
 }

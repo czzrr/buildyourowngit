@@ -1,7 +1,7 @@
 use std::{
     ffi::CStr,
     fmt::Display,
-    io::{self, BufRead, BufReader, Cursor, Read, Write},
+    io::{BufRead, BufReader, Cursor, Read, Write},
     path::{Path, PathBuf},
 };
 
@@ -42,6 +42,21 @@ impl Object {
         let object = Object { ty, contents };
 
         Ok(object)
+    }
+
+    pub fn write(self, mut writer: impl std::io::Write) -> anyhow::Result<()> {
+        let size = self.contents.len().to_string();
+
+        let mut buf = Vec::new();
+        buf.extend_from_slice(self.ty.to_string().as_bytes());
+        buf.extend(b" ");
+        buf.extend_from_slice(size.as_bytes());
+        buf.push(0);
+        buf.extend_from_slice(&self.contents);
+
+        writer.write_all(&buf).context("write object")?;
+
+        Ok(())
     }
 }
 

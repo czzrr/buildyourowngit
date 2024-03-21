@@ -66,7 +66,7 @@ fn get_tree_entries(dir: impl AsRef<Path>) -> Vec<TreeEntry> {
         if file_type.is_file() {
             // Blob.
             // Hash file contents.
-            let hash = hash_object(false, &file_name_abs);
+            let hash = hash_object(false, &file_name_abs).unwrap();
             let entry = TreeEntry {
                 mode: file_mode,
                 ty: ObjectType::from(file_mode),

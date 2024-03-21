@@ -81,7 +81,7 @@ fn main() -> anyhow::Result<()> {
             cat_file::cat_file(&object_hash)?;
         }
         Command::HashObject { write, file } => {
-            let hash = hash_object::hash_object(write, file);
+            let hash = hash_object::hash_object(write, file)?;
             println!("{}", hash);
         }
         Command::LsTree { name_only, object } => {

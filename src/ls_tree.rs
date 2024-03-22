@@ -1,4 +1,4 @@
-use anyhow::{Context, Ok};
+use anyhow::Ok;
 
 use crate::common::{hash_to_path, parse_tree_entries, zlib_decode, TreeEntry};
 

@@ -1,9 +1,7 @@
 use std::{fs::DirEntry, os::unix::fs::PermissionsExt, path::Path};
 
 use crate::{
-    common::{
-        hash, hash_to_path, zlib_encode, FileMode, Object, ObjectType, TreeEntry, TreeObject,
-    },
+    common::{hash, FileMode, Object, ObjectType, TreeEntry, TreeObject},
     hash_object::hash_object,
 };
 
@@ -15,19 +13,8 @@ pub fn write_tree() -> anyhow::Result<String> {
         ty: ObjectType::Tree,
         contents,
     };
-    let mut buf = Vec::new();
-    tree_object.write(&mut buf)?;
-    let hash = hash(&buf);
-    let encoded_tree_object = zlib_encode(&buf);
-    let path = hash_to_path(&hash)?;
 
-    log::debug!("Writing object to {}", path.to_str().unwrap());
-
-    // Create dir if it doesn't exist
-    let dir = path.ancestors().skip(1).next().unwrap();
-    std::fs::create_dir_all(dir).unwrap();
-
-    std::fs::write(path, encoded_tree_object).unwrap();
+    let hash = tree_object.write_to_objects_store()?;
 
     Ok(hash)
 }

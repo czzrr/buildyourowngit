@@ -1,6 +1,7 @@
 use std::{
     ffi::CStr,
     fmt::Display,
+    fs,
     io::{BufRead, BufReader, Cursor, Read, Write},
     path::{Path, PathBuf},
 };
@@ -44,7 +45,7 @@ impl Object {
         Ok(object)
     }
 
-    pub fn write(self, mut writer: impl std::io::Write) -> anyhow::Result<()> {
+    pub fn write(self, mut writer: impl std::io::Write) -> anyhow::Result<String> {
         let size = self.contents.len().to_string();
 
         let mut buf = Vec::new();
@@ -56,7 +57,22 @@ impl Object {
 
         writer.write_all(&buf).context("write object")?;
 
-        Ok(())
+        Ok(hash(&buf))
+    }
+
+    pub fn write_to_objects_store(self) -> anyhow::Result<String> {
+        let mut buf = Vec::new();
+        let hash = self.write(&mut buf)?;
+        let encoded = zlib_encode(&buf);
+
+        let object_dir = &hash[..2];
+        let object_file = &hash[2..];
+        let object_file_path = format!(".git/objects/{}/{}", object_dir, object_file);
+        log::debug!("Writing blob to {}", object_file_path);
+        fs::create_dir_all(format!(".git/objects/{}", object_dir)).context("create object dir")?;
+        fs::write(object_file_path, encoded).context("write object to file")?;
+
+        Ok(hash)
     }
 }
 

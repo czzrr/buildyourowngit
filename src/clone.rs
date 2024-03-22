@@ -3,6 +3,7 @@ use nom::{
     IResult,
 };
 
+#[allow(dead_code)]
 #[derive(Debug)]
 struct ReferenceDiscovery {
     sha_ref_pairs: Vec<(String, String)>,

@@ -4,7 +4,7 @@ use crate::common::{Object, ObjectType};
 
 /// Compute hash of `file`'s contents' blob object representation.
 /// If `write` is `true`, write blob object.
-pub fn hash_object(write: bool, file: impl AsRef<Path>) -> anyhow::Result<String> {
+pub fn run(write: bool, file: impl AsRef<Path>) -> anyhow::Result<String> {
     let contents = std::fs::read(file)?;
     let blob = Object {
         ty: ObjectType::Blob,

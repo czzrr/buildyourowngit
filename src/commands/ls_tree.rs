@@ -3,7 +3,7 @@ use anyhow::Ok;
 use crate::common::{hash_to_path, parse_tree_entries, zlib_decode, TreeEntry};
 
 /// Return entries in tree object identified by `hash`.
-pub fn ls_tree(hash: &str) -> anyhow::Result<Vec<TreeEntry>> {
+pub fn run(hash: &str) -> anyhow::Result<Vec<TreeEntry>> {
     let object_path = hash_to_path(hash)?;
     let object_contents = std::fs::read(object_path)?;
     let decoded_object_contents = zlib_decode(&object_contents);

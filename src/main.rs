@@ -8,7 +8,7 @@ use clap::Args;
 use clap::Parser;
 use clap::Subcommand;
 
-use mygit::*;
+use mygit::commands::*;
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]
@@ -49,10 +49,10 @@ enum Command {
     /// Commit tree object
     CommitTree {
         /// Tree SHA
-        tree_sha: String,
+        commit_hash: String,
         /// Parent commit
         #[arg(short)]
-        parent_sha: String,
+        parent_commit_hash: String,
         /// Commit message
         #[arg(short)]
         message: String,
@@ -75,17 +75,17 @@ fn main() -> anyhow::Result<()> {
 
     let args = Cli::parse();
     match args.command {
-        Command::Init => init::init(),
+        Command::Init => init::run(),
         Command::CatFile { flag, object_hash } => {
             anyhow::ensure!(flag.pretty, "-p must be used");
-            cat_file::cat_file(&object_hash)?;
+            cat_file::run(&object_hash)?;
         }
         Command::HashObject { write, file } => {
-            let hash = hash_object::hash_object(write, file)?;
+            let hash = hash_object::run(write, file)?;
             println!("{}", hash);
         }
         Command::LsTree { name_only, object } => {
-            let tree_entries = ls_tree::ls_tree(&object)?;
+            let tree_entries = ls_tree::run(&object)?;
             for entry in tree_entries {
                 if name_only {
                     println!("{}", entry.file);
@@ -95,17 +95,15 @@ fn main() -> anyhow::Result<()> {
             }
         }
         Command::WriteTree => {
-            let hash = write_tree::write_tree()?;
+            let hash = write_tree::run()?;
             println!("{}", hash);
         }
         Command::CommitTree {
-            tree_sha,
-            parent_sha: parent_commit,
+            commit_hash,
+            parent_commit_hash,
             message,
         } => {
-            if let Err(err) = commit_tree::commit_tree(tree_sha, parent_commit, message) {
-                println!("{}", err);
-            }
+            commit_tree::run(&commit_hash, &parent_commit_hash, &message)?;
         }
         Command::Clone {
             repo_url: repository_url,

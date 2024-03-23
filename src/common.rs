@@ -92,31 +92,7 @@ pub fn zlib_decode(data: &[u8]) -> Vec<u8> {
     decoded
 }
 
-pub struct TreeObject {
-    pub contents: Vec<u8>,
-}
-
-impl From<Vec<TreeEntry>> for TreeObject {
-    fn from(tree_entries: Vec<TreeEntry>) -> Self {
-        let mut buf = Vec::new();
-
-        for tree_entry in tree_entries.into_iter() {
-            buf.extend(tree_entry.mode.to_string().as_bytes());
-            buf.extend(b" ");
-            buf.extend(tree_entry.file.as_bytes());
-            buf.extend(b"\0");
-            buf.extend(hex::decode(&tree_entry.hash).unwrap());
-        }
-        let mut newbuf = Vec::from(b"tree ");
-        newbuf.extend(buf.len().to_string().as_bytes());
-        newbuf.extend(b"\0");
-        newbuf.extend(buf);
-
-        TreeObject { contents: newbuf }
-    }
-}
-
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum FileMode {
     RegularFile,
     ExecutableFile,
@@ -154,7 +130,7 @@ impl TryFrom<&str> for FileMode {
         match value {
             "100644" => Ok(FileMode::RegularFile),
             "100755" => Ok(FileMode::ExecutableFile),
-            "40000" => Ok(FileMode::Directory),
+            "40000" | "040000" => Ok(FileMode::Directory),
             _ => Err(value.to_owned()),
         }
     }
@@ -225,6 +201,16 @@ impl TreeEntry {
                 file,
             },
         ))
+    }
+
+    pub fn write(&self, mut writer: impl Write) -> anyhow::Result<()> {
+        writer.write(self.mode.to_string().as_bytes())?;
+        writer.write(b" ")?;
+        writer.write(self.file.as_bytes())?;
+        writer.write(b"\0")?;
+        writer.write(&hex::decode(&self.hash)?)?;
+
+        Ok(())
     }
 }
 

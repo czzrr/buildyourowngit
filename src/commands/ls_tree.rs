@@ -1,6 +1,5 @@
-use anyhow::Ok;
-
 use crate::common::{hash_to_path, parse_tree_entries, zlib_decode, TreeEntry};
+use anyhow::Ok;
 
 /// Return entries in tree object identified by `hash`.
 pub fn run(hash: &str) -> anyhow::Result<Vec<TreeEntry>> {

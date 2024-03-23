@@ -1,6 +1,5 @@
-use std::io::{self, Write};
-
 use crate::common::hash_to_path;
+use std::io::{self, Write};
 
 pub fn run(hash: &str, parent_hash: &str, message: &str) -> anyhow::Result<()> {
     if !hash_to_path(&hash)?.exists() {

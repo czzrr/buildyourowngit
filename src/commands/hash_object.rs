@@ -1,6 +1,5 @@
-use std::path::Path;
-
 use crate::common::{Object, ObjectType};
+use std::path::Path;
 
 /// Compute hash of `file`'s contents' blob object representation.
 /// If `write` is `true`, write blob object.

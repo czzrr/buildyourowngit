@@ -1,3 +1,6 @@
+use anyhow::Context;
+use nom::{bytes::complete::tag, IResult};
+use sha1::{Digest, Sha1};
 use std::{
     ffi::CStr,
     fmt::Display,
@@ -5,10 +8,6 @@ use std::{
     io::{BufRead, BufReader, Cursor, Read, Write},
     path::{Path, PathBuf},
 };
-
-use anyhow::Context;
-use nom::{bytes::complete::tag, IResult};
-use sha1::{Digest, Sha1};
 
 pub struct Object {
     pub ty: ObjectType,

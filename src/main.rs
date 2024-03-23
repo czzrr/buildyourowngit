@@ -1,14 +1,12 @@
+use clap::Args;
+use clap::Parser;
+use clap::Subcommand;
+use mygit::commands::*;
 #[allow(unused_imports)]
 use std::env;
 #[allow(unused_imports)]
 use std::fs;
 use std::path::PathBuf;
-
-use clap::Args;
-use clap::Parser;
-use clap::Subcommand;
-
-use mygit::commands::*;
 
 #[derive(Debug, Parser)]
 #[command(version, about, long_about = None)]

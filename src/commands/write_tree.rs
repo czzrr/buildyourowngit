@@ -1,10 +1,7 @@
-use std::{fs::DirEntry, os::unix::fs::PermissionsExt, path::Path};
-
-use anyhow::Context;
-
-use crate::common::{FileMode, Object, ObjectType, TreeEntry};
-
 use crate::commands::hash_object;
+use crate::common::{FileMode, Object, ObjectType, TreeEntry};
+use anyhow::Context;
+use std::{fs::DirEntry, os::unix::fs::PermissionsExt, path::Path};
 
 /// Write tree object for current directory and return its hash.
 pub fn run() -> anyhow::Result<String> {
@@ -26,7 +23,35 @@ fn compute_tree_contents(dir: impl AsRef<Path>) -> anyhow::Result<Vec<u8>> {
     let mut files = std::fs::read_dir(&dir)?
         .into_iter()
         .collect::<Result<Vec<DirEntry>, _>>()?;
-    files.sort_by(|f1, f2| f1.file_name().cmp(&f2.file_name()));
+    files.sort_by(|f1, f2| {
+        // https://github.com/git/git/blob/11c821f2f2a31e70fb5cc449f9a29401c333aad2/tree.c#L99
+        let name1 = f1.file_name();
+        let name1 = name1.as_encoded_bytes();
+        let ty1 = f1.file_type().expect("file type");
+        let name2 = f2.file_name();
+        let name2 = name2.as_encoded_bytes();
+        let ty2 = f2.file_type().expect("file type");
+
+        let min_len = name1.len().min(name2.len());
+
+        match name1[..min_len].cmp(&name2[..min_len]) {
+            std::cmp::Ordering::Equal => (),
+            ord => return ord,
+        };
+
+        let c1 = match name1.get(min_len).copied() {
+            Some(c) => Some(c),
+            _ if ty1.is_dir() => Some(b'/'),
+            _ => None,
+        };
+        let c2 = match name2.get(min_len).copied() {
+            Some(c) => Some(c),
+            _ if ty2.is_dir() => Some(b'/'),
+            _ => None,
+        };
+
+        c1.cmp(&c2)
+    });
 
     // Compute tree entry for each file
     for file in files {

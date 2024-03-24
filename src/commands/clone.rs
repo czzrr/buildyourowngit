@@ -1,3 +1,5 @@
+use std::io::{stdout, Write};
+
 use nom::{
     bytes::complete::{tag, take, take_while},
     IResult,
@@ -101,100 +103,91 @@ pub fn clone(repository_url: String) {
     // println!("\n{}\n", body);
 
     let url = format!("{}/git-upload-pack", repository_url);
-    // let mut args = Vec::new();
-    // args.push("0011command=fetch");
-    // args.push("0014agent=git/2.34.1");
-    // args.push("0016object-format=sha1");
-    // args.push("000dthin-pack");
-    // args.push("000dofs-delta");
-    // args.push("0032want 20f7295d14cbf2d4a12bf41d3a1b6bf17c04c6a3");
-    // args.push("0032want 20f7295d14cbf2d4a12bf41d3a1b6bf17c04c6a3");
-    // args.push("0009done");
-    // args.push("0000");
-    // let body = args.join("\n");
-    // println!("{}", body);
-    // dbg!(body.len());
-    let body = "0011command=fetch0032want 20f7295d14cbf2d4a12bf41d3a1b6bf17c04c6a3\n0009done\n0000";
-    //let body = format!("0011command=fetch\n00320016object-format=sha1\n00dthin-pack\n000dofs-delta\nwant 003220f7295d14cbf2d4a12bf41d3a1b6bf17c04c6a3\n0009done\n0000");
-    //let body = format!("0011command=fetch\00032want 003d20f7295d14cbf2d4a12bf41d3a1b6bf17c04c6a3\00009done\00000");
+    // Hardcoded for now.
+    // TODO: use hashes from ls-refs
+    let body =
+        "0011command=fetch00010032want 20f7295d14cbf2d4a12bf41d3a1b6bf17c04c6a3\n0009done\n0000";
     let response = client
         .post(url)
-        //.header("User-Agent", "git/2.34.1")
         .header("Git-Protocol", "version=2")
-        //.header("Content-Type", "application/x-git-upload-pack-request")
-        //.header("Accept", "application/x-git-upload-pack-result").body(body)
-        //.header("Accept-Encoding", "deflate, gzip, br, zstd")
-        .body(body).send()
+        .body(body)
+        .send()
         .unwrap();
-    println!("{:?}", response);
+    //println!("{:?}", response);
     let body = response.bytes().unwrap();
-    dbg!(&body);
+    //dbg!(&body);
 
-    
+    let mut buf = &body[..];
 
-    
+    // Find start of PACK.
+    // TODO: do this in a smarter way so that progress is printed
+    loop {
+        let size =
+            usize::from_str_radix(&String::from_utf8(buf[..4].to_vec()).unwrap(), 16).unwrap();
+        // What is the 0x01 byte?
+        if buf[4..9] == b"\x01PACK"[..] {
+            break;
+        } else {
+            buf = buf.get(size..).unwrap();
+        }
+    }
+    println!("processing pack of len {}", buf.len());
+    buf = &buf[9..];
 
-    // let ref_disc = ReferenceDiscovery::parse(&body).unwrap().1;
-    // println!("{:?}", ref_disc);
+    let protocol_version = u32::from_be_bytes(buf[..4].try_into().unwrap());
+    dbg!(protocol_version);
+    buf = &buf[4..];
 
-    // let mut wants = Vec::new();
-    // wants.push("0014command=ls-refs".to_owned());
-    // for (sha, _) in &ref_disc.sha_ref_pairs {
-    //     wants.push(format!("0032want {}", sha));
-    // }
-    // wants.push("0000".to_owned());
-    // wants.push("0009done\n".to_owned());
+    let num_objects = u32::from_be_bytes(buf[..4].try_into().unwrap());
+    dbg!(num_objects);
+    buf = &buf[4..];
 
-    // let wants = wants.join("\n");
+    for _ in 0..num_objects {
+        println!("\n--- processing object ---");
+        let (object_type, idx, size) = pack_entry_size(buf);
+        buf = &buf[idx..];
+        // `size` is the size of the decompressed data, so we don't know how many bytes
+        // to read from `buf`. Therefore, we just decompress data from `buf`.
+        let mut decompressed_data = Vec::with_capacity(size);
+        let offset_to_next_entry = decompress_stream(buf, &mut decompressed_data);
+        assert!(decompressed_data.len() == size);
+        // Write data to stdout for now.
+        stdout().write_all(&decompressed_data).unwrap();
 
-    // println!("{}", wants);
+        buf = &buf[offset_to_next_entry..];
+    }
+    // TODO: collect pack entries into Vec.
+}
 
-    // let response = client
-    //     .post(format!("{}/git-upload-pack", repository_url))
-    //     .body(wants)
-    //     .header("Content-Type", "application/x-git-upload-pack-request")
-    //     .send()
-    //     .unwrap();
-    // println!("{:?}", response);
-    // let body = response.text().unwrap();
-    // println!("\n{}\n", body);
+fn decompress_stream(buf: &[u8], decompressed_data: &mut Vec<u8>) -> usize {
+    let mut decompress = flate2::Decompress::new(true);
+    decompress
+        .decompress_vec(buf, decompressed_data, flate2::FlushDecompress::None)
+        .unwrap();
+    dbg!(decompress.total_in());
 
-    // let lines: Vec<_> = body.split('\n').collect();
+    decompress.total_in() as usize
+}
 
-    // for line in &lines {
-    //     println!("{}", line);
-    // }
+fn pack_entry_size(buf: &[u8]) -> (u8, usize, usize) {
+    let mut idx = 0;
 
-    // assert!(lines[0] == "001e# service=git-upload-pack");
+    let mut c = buf[idx];
+    idx += 1;
 
-    // let xs: Vec<&str> = lines[1][4..].split_whitespace().collect();
+    let object_type = (c >> 4) & 0x7;
+    dbg!(object_type);
 
-    // for x in &xs {
-    //     println!("{}", x);
-    // }
+    let mut size = (c & 0x0f) as usize;
+    let mut shift: u8 = 4;
 
-    // let sha = xs[0];
-    // let reff = xs[1].split('\0').next().unwrap();
+    while c & 0x80 != 0 {
+        c = buf[idx];
+        idx += 1;
+        size += ((c & 0x7f) as usize) << shift;
+        shift += 7;
+    }
+    dbg!(size);
 
-    // dbg!(&sha);
-    // dbg!(&reff);
-
-    // let pkt_lines = &lines[2..lines.len()-1];
-
-    // println!("pkt_lines");
-    // for pkt_line in pkt_lines {
-    //     println!("{}", pkt_line);
-    // }
-
-    // let mut pkt_lines_pairs = Vec::new();
-
-    // for pkt_line in pkt_lines {
-    //     let split: Vec<_> = pkt_line.split_whitespace().collect();
-    //     pkt_lines_pairs.push((split[0], split[1]));
-    // }
-
-    // println!("pkt_lines_pairs");
-    // for pkt_line_pair in pkt_lines_pairs {
-    //     println!("{:?}", pkt_line_pair);
-    // }
+    (object_type, idx, size)
 }

@@ -1,11 +1,12 @@
 use nom::{
-    bytes::complete::{tag, take, take_while}, IResult
+    bytes::complete::{tag, take, take_while},
+    IResult,
 };
 
 #[derive(Debug)]
 struct ReferenceDiscovery {
     sha_ref_pairs: Vec<(String, String)>,
-    capabilities: Vec<String>
+    capabilities: Vec<String>,
 }
 
 impl ReferenceDiscovery {
@@ -48,33 +49,114 @@ impl ReferenceDiscovery {
 
         println!("capabilities: {:?}", capabilities);
 
-        let mut sha_ref_pairs: Vec<(String, String)> = lines[2..lines.len() - 1].iter().map(|line| {
-            let mut split = line[4..].split(' ');
-            let sha = split.next().unwrap().to_owned();
-            let reff = split.next().unwrap().to_owned();
-            (sha, reff)
-        }).collect();
+        let mut sha_ref_pairs: Vec<(String, String)> = lines[2..lines.len() - 1]
+            .iter()
+            .map(|line| {
+                let mut split = line[4..].split(' ');
+                let sha = split.next().unwrap().to_owned();
+                let reff = split.next().unwrap().to_owned();
+                (sha, reff)
+            })
+            .collect();
         sha_ref_pairs.insert(0, (sha.to_owned(), reference.to_owned()));
-        
+
         println!("--- FINISHED PARSING ---");
 
-        Ok((input, ReferenceDiscovery { sha_ref_pairs, capabilities }))
+        Ok((
+            input,
+            ReferenceDiscovery {
+                sha_ref_pairs,
+                capabilities,
+            },
+        ))
     }
 }
 
 pub fn clone(repository_url: String) {
     println!("Cloning repository: {}", repository_url);
 
-    let response = reqwest::blocking::get(format!(
-        "{}/info/refs?service=git-upload-pack",
-        repository_url
-    ))
-    .unwrap();
-    let body = response.text().unwrap();
-    println!("\n{}\n", body);
+    let client = reqwest::blocking::Client::new();
 
-    let ref_disc = ReferenceDiscovery::parse(&body).unwrap().1;
-    println!("{:?}", ref_disc);
+    // let response = client
+    //     .get(format!(
+    //         "{}/info/refs?service=git-upload-pack",
+    //         repository_url
+    //     ))
+    //     .header("git-protocol", "version=2").send()
+    //     .unwrap();
+    // let body = response.text().unwrap();
+    // println!("\n{}\n", body);
+
+    // let url = format!("{}/git-upload-pack", repository_url);
+    // let body = format!("0014command=ls-refs\n0000");
+    // let response = client
+    //     .post(url)
+    //     .header("git-protocol", "version=2")
+    //     .body(body)
+    //     .send()
+    //     .unwrap();
+    // println!("{:?}", response);
+    // let body = response.text().unwrap();
+    // println!("\n{}\n", body);
+
+    let url = format!("{}/git-upload-pack", repository_url);
+    // let mut args = Vec::new();
+    // args.push("0011command=fetch");
+    // args.push("0014agent=git/2.34.1");
+    // args.push("0016object-format=sha1");
+    // args.push("000dthin-pack");
+    // args.push("000dofs-delta");
+    // args.push("0032want 20f7295d14cbf2d4a12bf41d3a1b6bf17c04c6a3");
+    // args.push("0032want 20f7295d14cbf2d4a12bf41d3a1b6bf17c04c6a3");
+    // args.push("0009done");
+    // args.push("0000");
+    // let body = args.join("\n");
+    // println!("{}", body);
+    // dbg!(body.len());
+    let body = "0011command=fetch0032want 20f7295d14cbf2d4a12bf41d3a1b6bf17c04c6a3\n0009done\n0000";
+    //let body = format!("0011command=fetch\n00320016object-format=sha1\n00dthin-pack\n000dofs-delta\nwant 003220f7295d14cbf2d4a12bf41d3a1b6bf17c04c6a3\n0009done\n0000");
+    //let body = format!("0011command=fetch\00032want 003d20f7295d14cbf2d4a12bf41d3a1b6bf17c04c6a3\00009done\00000");
+    let response = client
+        .post(url)
+        //.header("User-Agent", "git/2.34.1")
+        .header("Git-Protocol", "version=2")
+        //.header("Content-Type", "application/x-git-upload-pack-request")
+        //.header("Accept", "application/x-git-upload-pack-result").body(body)
+        //.header("Accept-Encoding", "deflate, gzip, br, zstd")
+        .body(body).send()
+        .unwrap();
+    println!("{:?}", response);
+    let body = response.bytes().unwrap();
+    dbg!(&body);
+
+    
+
+    
+
+    // let ref_disc = ReferenceDiscovery::parse(&body).unwrap().1;
+    // println!("{:?}", ref_disc);
+
+    // let mut wants = Vec::new();
+    // wants.push("0014command=ls-refs".to_owned());
+    // for (sha, _) in &ref_disc.sha_ref_pairs {
+    //     wants.push(format!("0032want {}", sha));
+    // }
+    // wants.push("0000".to_owned());
+    // wants.push("0009done\n".to_owned());
+
+    // let wants = wants.join("\n");
+
+    // println!("{}", wants);
+
+    // let response = client
+    //     .post(format!("{}/git-upload-pack", repository_url))
+    //     .body(wants)
+    //     .header("Content-Type", "application/x-git-upload-pack-request")
+    //     .send()
+    //     .unwrap();
+    // println!("{:?}", response);
+    // let body = response.text().unwrap();
+    // println!("\n{}\n", body);
 
     // let lines: Vec<_> = body.split('\n').collect();
 

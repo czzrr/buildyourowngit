@@ -15,15 +15,15 @@ name = "mygit"
 path = "src/lib.rs"
 
 [dependencies]
-reqwest = { version = "0.11.13", features = ["json", "blocking"] } # http requests
-tokio = { version = "1.23.0", features = ["full"] }                # async http requests
-clap = { version = "4.5.2", features = ["derive"]}                # creating a cli
-flate2 = "1.0"                                                     # gzip compression
-sha1 = "0.10.1"                                                    # hashing
-hex = "0.4.3"                                                      # working with hash output
-anyhow = "1.0.59"                                                  # error handling
-thiserror = "1.0.32"                                               # error handling
+reqwest = { version = "0.11.13", features = [
+    "json",
+    "blocking",
+] } # http requests
+clap = { version = "4.5.2", features = ["derive"] } # creating a cli
+flate2 = "1.0" # gzip compression
+sha1 = "0.10.1" # hashing
+hex = "0.4.3" # working with hash output
+anyhow = "1.0.59" # error handling
 log = "0.4.21"
 env_logger = "0.11.3"
 nom = "7.1.3"
-derive-try-from-primitive = "1.0.0"
